@@ -27,11 +27,12 @@ end
 
 local cancomma = 1e6 -- change this to set comma
 
-local alpha = {} do
-	for i = string.byte('a'), string.byte('z') do
-		table.insert(alpha, string.char(i))
-	end
-end
+local alpha1 = {
+	'a','b','c','d','e','f','g','h','i','j','k','l','m',
+	'n','o','p','q','r','s','t','u','v','w','x','y','z'
+}
+
+local alpha2 = {} do for i = string.byte('a'), string.byte('z') do table.insert(alpha2, string.char(i)) end end
 tab.pi, tab.tau, tab.huge, tab.e = pi, tau, inf, e
 local first = {'', 'U', 'D', 'T', 'Qd', 'Qn', 'Sx', 'Sp', 'Oc', 'No'}
 local second = {'', 'De', 'Vt', 'Tg', 'qg', 'Qg', 'sg', 'Sg', 'Og', 'Ng'}
@@ -152,8 +153,8 @@ end
 
 function tab.createAlpha(index: number)
 	local i = index-1
-	local fir = alpha[(i//26)%26+1] or '?'
-	local sec = alpha[(i//26)+1] or '?'
+	local fir = alpha1[(i//26)%26+1] or '?'
+	local sec = alpha1[(i//26)+1] or '?'
 	return fir .. sec
 end
 
@@ -162,11 +163,14 @@ function tab.format(x: number, canDecimal: number?, canComma: boolean?): string
 		local exp = floor(log10(x))
 		local index = floor((exp-15)/3)+1
 		local man = x/(10^(15+(index-1)*3))
-		local alp = tab.createAlpha(index)
-		return tab.floord(man + 0.001, canDecimal) .. alp
+		local i = index-1
+		local fir = alpha1[(i//26)%26+1] or '?'
+		local sec = alpha1[(i//26)+1] or '?'
+		return tab.floord(man + 0.001, canDecimal) .. fir .. sec
 	end
 	return tab.short(x, canDecimal, canComma)
 end
+
 
 function tab.me(val1: number, val2: number): boolean
 	return val1>val2
