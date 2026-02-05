@@ -152,7 +152,7 @@ end
 
 function tab.createAlpha(index: number)
 	local i = index-1
-	local fir = alpha[(i//26)+1] or '?'
+	local fir = alpha[(i//26)%26+1] or '?'
 	local sec = alpha[(i//26)+1] or '?'
 	return fir .. sec
 end
