@@ -19,6 +19,7 @@ local abs = math.abs
 local random = math.random
 local fmod = math.fmod
 local log10 = math.log10
+local exp = math.exp
 
 local pow10 = {}
 for i = -308, 308 do
@@ -344,7 +345,10 @@ end
 
 -- Random number generator with optional min/max
 function tab.random(min: number?, max: number?): number
-	if not min or max then return math.random() elseif min and not max then return math.random(min) else return math.random(min, max) end
+	if min and max then
+		return math.random(min, max)
+	end
+	return math.random()
 end
 
 -- Encodes a number into a sortable logarithmic space value
@@ -438,7 +442,7 @@ end
 
 -- Returns percentage representation of two values
 function tab.percent(val1: number, val2: number)
-	local percent = (val1/val1)*100
+	local percent = (val1/val2)*100
 	return percent
 end
 
@@ -448,6 +452,40 @@ function tab.levelProgress(currency: number, cost: number, growth: number): (num
 	local nextCost = cost*(growth^level)
 	local left = currency - spent
 	return level, left/nextCost
+end
+
+function tab.logistic(x: number, mid: number, steep: number): number
+	return 1/(1+exp(-steep*(x-mid)))
+end
+
+function tab.smoothStep(x: number, a: number, b: number): number
+	x = tab.clamp((x-a)/(b - a), 0, 1)
+	return x*x*(3-2*x)
+end
+
+function tab.resetLayer(val: number, base: number, power: number): number
+	if val < base then return 0 end
+	return ((val / base) ^ power) // 1
+end
+
+function tab.milestones(x: number, step: number, bonus: number): number
+	return 1 + floor(x/step)*bonus
+end
+
+function tab.eta(curr: number, goal: number, rate: number): number
+	if rate <= 0 then return inf end
+	return (goal - curr) / rate
+end
+
+function tab.dynamicCost(cost: number, owned: number, scale: number, methods: 'exp'|'linear'|'hybrid'): number
+	if methods == 'exp' then return cost * (scale ^ owned) end
+	if methods == 'linear' then return cost + scale * owned end
+	if methods == 'hybrid' then return cost * (scale ^ owned) + scale * owned end
+	return cost
+end
+
+function tab.sessionBonus(second: number, base: number): number
+	return base * log10(second + 1)
 end
 
 return tab
