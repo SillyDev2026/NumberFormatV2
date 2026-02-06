@@ -10,8 +10,6 @@ local inln2: number = 1.4426950408889634
 local ln2: number = 0.6931471805599453
 local ln10: number = 2.302585092994046
 local e: number = 2.718281828459045
-
-local floor = math.floor
 local ceil = math.ceil
 local log = math.log
 local pow = math.pow
@@ -20,10 +18,11 @@ local random = math.random
 local fmod = math.fmod
 local log10 = math.log10
 local exp = math.exp
+local sqrt = math.sqrt
 
 local pow10 = {}
 for i = -308, 308 do
-	pow10[i] = pow(10, i)
+	pow10[i] = 10^i
 end
 
 local cancomma = 1e6
@@ -72,31 +71,32 @@ end
 
 -- Returns the smallest value among all provided numbers
 function tab.min(base: number, ...: number): number
-	local args = {...}
-	local min = base
-	for i = 1, #args do
-		if args[i] < min then
-			min = args[i]
+	local n = select('#', ...)
+	for i = 1, n do
+		local v = select(i, ...)
+		if v < base then
+			base = v
 		end
 	end
-	return min
+	return base
 end
 
 -- Returns the largest value among all provided numbers
 function tab.max(base: number, ...: number): number
-	local args = {...}
-	local max = base
-	for i = 1, #args do
-		if args[i] > max then
-			max = args[i]
+	local n = select('#', ...)
+	for i = 1, n do
+		local v = select(i, ...)
+		if v > base then
+			base = v
 		end
 	end
-	return max
+	return base
 end
-
 -- Clamps a number between a minimum and maximum value
-function tab.clamp(x: number, lo: number, hi: number): number
-	return x < lo and lo or (x > hi and hi or x)
+function tab.clamp(x: number, l: number, h: number): number
+	if x < l then return l end
+	if x > h then return h end
+	return x
 end
 
 -- Fast integer floor using integer division
@@ -106,7 +106,7 @@ end
 
 -- Fast integer ceil using integer division trick
 function tab.ceil(x: number): number
-	return -((x)//1)
+	return (x == x//1) and x or (x//1+1)
 end
 
 -- Linear scaling: base + add * level
@@ -144,23 +144,19 @@ end
 
 -- Standard rounding (0.5 up, handles negatives correctly)
 function tab.round(x: number): number
-	if x>= 0 then
-		return x - (x%1) + ((x%1)>=0.5 and 1 or 0)
-	else
-		local r = (-x)%1
-		return x + r - (r>=0.5 and 1 or 0)
-	end
+	return (x>=0 and (x+0.5)//1) or (x-0.5)//1
 end
 
 -- Floors a number to a fixed number of decimal places
-function tab.floord(x: number, decimal: number?): number
+function tab.floord(x: number,decimal: number?): number
 	decimal = decimal or 2
-	return (x*pow10[decimal])//1/pow10[decimal]
+	local p = 10^decimal
+	return (x*p)//1/p
 end
 
 -- Formats an integer with comma separators (1,234,567)
 function tab.Comma(n: number): string
-	local str = tostring(floor(n))
+	local str = tostring(n//1)
 	local result = str:reverse():gsub("(%d%d%d)","%1,") 
 	result = result:reverse()
 	if result:sub(1,1) == "," then
@@ -174,12 +170,12 @@ function tab.short(x: number, canDecimal: number?, canComma: boolean?): string
 	canDecimal = canDecimal or 2
 	canComma = canComma or false
 	if x < 1e3 then
-		local frac = pow10[canDecimal or 2] or 100
+		local frac = 10^canDecimal or 100
 		local n = (x*frac)//1
 		return tostring(n/frac)
 	end
-	local exp = floor(math.log10(x))
-	local index = floor(exp/3)
+	local exp = math.log10(x)//1
+	local index = (exp/3)//1
 	local man = tab.floord(x/10^(index*3) + 0.001, canDecimal)
 	local start = #beginning
 	if canComma and x <= cancomma then
@@ -209,12 +205,12 @@ end
 -- Automatically formats numbers using suffix or alphabet system
 function tab.format(x: number, canDecimal: number?, canComma: boolean?): string
 	if x >= 1e15 then
-		local exp = floor(log10(x))
-		local index = floor((exp-15)/3)+1
-		local man = x/(10^(15+(index-1)*3))
-		local i = index-1
-		local fir = alpha1[(i//26)%26+1] or '?'
-		local sec = alpha1[(i//26)+1] or '?'
+		local exp = log10(x) // 1
+		local index = ((exp - 15) / 3) // 1 + 1
+		local man = x / (10^(15 + (index-1)*3))
+		local i = index - 1
+		local fir = alpha1[(i // 26) % 26 + 1] or '?'
+		local sec = alpha1[(i // 26) + 1] or '?'
 		return tab.floord(man + 0.001, canDecimal) .. fir .. sec
 	end
 	return tab.short(x, canDecimal, canComma)
@@ -284,18 +280,18 @@ function tab.mod(val1: number, val2: number): number
 end
 
 -- Floating-point modulo (manual implementation)
-function tab.fmod(val1: number, val2: number)
-	return val1-val2*floor(val1/val2)
+function tab.fmod(val1: number, val2: number): number
+	return val1-val2*(val1//val2)
 end
 
 -- Truncates toward zero
-function tab.trunc(val: number)
-	return val>= 0 and floor(val) or ceil(val)
+function tab.trunc(val: number): number
+	return val >= 0 and val//1 or -((-val)//1)
 end
 
 -- Splits number into integer and fractional parts
 function tab.modf(val: number)
-	local int = (val>= 0) and floor(val) or ceil(val)
+	local int = (val>= 0) and val//1 or -((-val)//1)
 	local frac = val-int
 	return int, frac
 end
@@ -355,30 +351,26 @@ end
 function tab.lbencode(val: number): number
 	if val == 0 then return 4e18 end
 	local v = val
-	local sign = (v < 0) and 1 or 2
-	if sign == 1 then v = -v end
-	local exp = floor(log10(v))
-	local man = v/10^exp
-	local manPart = log10(man) * 1e13
+	local sign = (v<0) and 1 or 2
+	local exp = log10(v)//1
+	local man = v / 10^exp
+	local manPart = log10(man)*1e13
 	local valEnc = sign * 1e18 + exp * 1e14 + manPart
-	if sign == 1 then
-		valEnc = 1e17 - valEnc
-	end
+	if sign == 0 then valEnc = 1e17 - valEnc end
 	return valEnc
 end
 
 -- Decodes a value produced by lbencode back into a number
-function tab.lbdecode(val: number)
+function tab.lbdecode(val: number): number
 	if val == 4e18 then return 0 end
-	local sign = floor(val / 1e18)
-	local v = (sign == 1) and (1e18 - val) or (val - 2e18)
-	local exp = floor(v / 1e14)
-	local man = 10^((v % 1e14) / 1e13)
+	local sign = val // 1e18
+	local v = (sign == 1) and (1e18-val) or (val-2e18)
+	local exp = v//1e14
+	local man = 10^((v%1e14)/1e13)
 	local res = man * 10^exp
 	if sign == 1 then res = -res end
 	return res
 end
-
 -- Encodes data while preserving the highest historical value
 function tab.encodeData(val: number, oldData: number): number
 	if oldData then
@@ -386,9 +378,9 @@ function tab.encodeData(val: number, oldData: number): number
 		if v == 4e18 then
 			v = 0
 		else
-			local sign = floor(v / 1e18)
+			local sign = v // 1e18
 			local tmp = (sign == 1) and (1e18 - v) or (v - 2e18)
-			local exp = floor(tmp / 1e14)
+			local exp = tmp // 1e14
 			local man = 10^((tmp % 1e14) / 1e13)
 			v = man * 10^exp
 			if sign == 1 then v = -v end
@@ -399,53 +391,44 @@ function tab.encodeData(val: number, oldData: number): number
 	local v = val
 	local sign = (v < 0) and 1 or 2
 	if sign == 1 then v = -v end
-	local exp = floor(log10(v))
-	local man = v / 10^exp
-	local manPart = log10(man) * 1e13
+	local exp = math.log10(v) // 1
+	local man = v /10^exp
+	local manPart = math.log10(man) * 1e13
 	local valEnc = sign * 1e18 + exp * 1e14 + manPart
 	if sign == 1 then
 		valEnc = 1e17 - valEnc
 	end
 	return valEnc
 end
-
 -- Converts seconds into readable time (Xd:Xh:Xm:Xs)
 function tab.timeConvert(seconds: number): string
 	if seconds <= 0 then return "0s" end
 
-	local days = floor(seconds / 86400)
-	local hours = floor(seconds / 3600) % 24
-	local minutes = floor(seconds / 60) % 60
-	local secs = floor(seconds % 60)
+	local days = seconds // 86400
+	local hours = (seconds // 3600) % 24
+	local minutes = (seconds // 60) % 60
+	local secs = seconds % 60
 
 	local s = ""
 	if days > 0 then s = s .. days .. "d:" end
 	if hours > 0 or days > 0 then s = s .. hours .. "h:" end
 	if minutes > 0 or hours > 0 or days > 0 then s = s .. minutes .. "m:" end
 	s = s .. secs .. "s"
-
 	return s
 end
 
 -- Calculates max purchasable amount and total cost for exponential prices
 function tab.maxBuy(currency: number, cost: number, multi: number): (number, number)
 	local min = multi - 1
-	local currMul = currency * min
-	local currDiv = currMul / cost
-	local totalAmount = floor(log(currDiv+1, multi))
-	local mulPow = multi ^ totalAmount
-	local mulPowSub = mulPow - 1
-	local totalDiv = mulPowSub / min
-	local totalCost = totalDiv * cost
-	return totalAmount, totalCost
+	local total = math.floor(log(currency * min / cost + 1, multi))
+	local totalCost = cost * ((multi^total - 1) / min)
+	return total, totalCost
 end
 
 -- Returns percentage representation of two values
 function tab.percent(val1: number, val2: number)
-	local percent = (val1/val2)*100
-	return percent
+	return (val1/val2)*100
 end
-
 -- Calculates level gained and progress toward next level
 function tab.levelProgress(currency: number, cost: number, growth: number): (number, number)
 	local level, spent = tab.maxBuy(currency, cost, growth)
@@ -469,7 +452,7 @@ function tab.resetLayer(val: number, base: number, power: number): number
 end
 
 function tab.milestones(x: number, step: number, bonus: number): number
-	return 1 + floor(x/step)*bonus
+	return 1 + (x // step) * bonus
 end
 
 function tab.eta(curr: number, goal: number, rate: number): number
@@ -486,6 +469,23 @@ end
 
 function tab.sessionBonus(second: number, base: number): number
 	return base * log10(second + 1)
+end
+
+function tab.afkGain(rate: number, seconds: number, cap: number): number
+	local gain = rate * seconds
+	if gain > cap then
+		gain = cap + sqrt(gain- cap)
+	end
+	return gain
+end
+
+function tab.studProgress(p1: Vector3, p2: Vector3)
+	return tab.floord((p1 - p2).Magnitude, 2)
+end
+
+function tab.studProgressScaled(p1: Vector3, p2: Vector3, scale: number)
+	local d = (p1-p2).Magnitude
+	return log(d+1, scale+1)
 end
 
 return tab
