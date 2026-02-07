@@ -1,4 +1,5 @@
 --!strict
+--!optimize 2
 local tab = {}
 
 local inf: number = 1/0
@@ -10,20 +11,13 @@ local inln2: number = 1.4426950408889634
 local ln2: number = 0.6931471805599453
 local ln10: number = 2.302585092994046
 local e: number = 2.718281828459045
-local ceil = math.ceil
 local log = math.log
 local pow = math.pow
 local abs = math.abs
 local random = math.random
-local fmod = math.fmod
 local log10 = math.log10
 local exp = math.exp
 local sqrt = math.sqrt
-
-local pow10 = {}
-for i = -308, 308 do
-	pow10[i] = 10^i
-end
 
 local cancomma = 1e6
 
@@ -32,7 +26,6 @@ local alpha1 = {
 	'n','o','p','q','r','s','t','u','v','w','x','y','z'
 }
 
-local alpha2 = {} do for i = string.byte('a'), string.byte('z') do table.insert(alpha2, string.char(i)) end end
 tab.pi, tab.tau, tab.huge, tab.e = pi, tau, inf, e
 local first = {'', 'U', 'D', 'T', 'Qd', 'Qn', 'Sx', 'Sp', 'Oc', 'No'}
 local second = {'', 'De', 'Vt', 'Tg', 'qg', 'Qg', 'sg', 'Sg', 'Og', 'Ng'}
@@ -91,6 +84,10 @@ function tab.max(base: number, ...: number): number
 		end
 	end
 	return base
+end
+
+function tab.between(val: number, low: number, high: number): boolean
+	return low <= val and val <= high
 end
 -- Clamps a number between a minimum and maximum value
 function tab.clamp(x: number, l: number, h: number): number
@@ -183,11 +180,11 @@ function tab.short(x: number, canDecimal: number?, canComma: boolean?): string
 	else
 		if index > 102 then return 'Inf' end
 		if index <= start then
-			return man .. beginning[index]
+			return man .. beginning[index-1]
 		end
 		local suf = index-1
-		local hund = index // 100
-		local rem = index % 100
+		local hund = index-1 // 100
+		local rem = index-1 % 100
 		local ten = rem//10
 		local one = rem%10
 		return man .. (first[one+1] or '') .. (second[ten+1] or '') .. (third[hund+1] or '')
@@ -213,7 +210,31 @@ function tab.format(x: number, canDecimal: number?, canComma: boolean?): string
 		local sec = alpha1[(i // 26) + 1] or '?'
 		return tab.floord(man + 0.001, canDecimal) .. fir .. sec
 	end
-	return tab.short(x, canDecimal, canComma)
+	canDecimal = canDecimal or 2
+	canComma = canComma or false
+	if x < 1e3 then
+		local frac = 10^canDecimal or 100
+		local n = (x*frac)//1
+		return tostring(n/frac)
+	end
+	local exp = math.log10(x)//1
+	local index = (exp/3)//1
+	local man = tab.floord(x/10^(index*3) + 0.001, canDecimal)
+	local start = #beginning
+	if canComma and x <= cancomma then
+		return tab.Comma(x)
+	else
+		if index > 102 then return 'Inf' end
+		if index <= start then
+			return man .. beginning[index]
+		end
+		local suf = index-1
+		local hund = index // 100
+		local rem = index % 100
+		local ten = rem//10
+		local one = rem%10
+		return man .. (first[one+1] or '') .. (second[ten+1] or '') .. (third[hund+1] or '')
+	end
 end
 
 -- Greater than
@@ -488,4 +509,4 @@ function tab.studProgressScaled(p1: Vector3, p2: Vector3, scale: number)
 	return log(d+1, scale+1)
 end
 
-return tab
+return table.freeze(tab)
